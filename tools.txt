@@ -1,0 +1,4 @@
+fakeItEasy
+InMemory
+xunit
+fluentAssertions

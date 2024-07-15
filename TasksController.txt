@@ -1,0 +1,80 @@
+using Microsoft.AspNetCore.Mvc;
+using System.Collections.Generic;
+
+namespace TaskManager.Controllers
+{
+    [Route("api/[controller]")]
+    [ApiController]
+    public class TasksController : ControllerBase
+    {
+        private readonly ITaskRepository _repository;
+
+        public TasksController(ITaskRepository repository)
+        {
+            _repository = repository;
+        }
+
+        [HttpGet]
+        public ActionResult<IEnumerable<TaskItem>> GetAllTasks()
+        {
+            var tasks = _repository.GetAllTasks();
+            return Ok(tasks);
+        }
+
+        [HttpGet("{id}")]
+        public ActionResult<TaskItem> GetTaskById(int id)
+        {
+            var task = _repository.GetTaskById(id);
+            if (task == null)
+            {
+                return NotFound();
+            }
+            return Ok(task);
+        }
+
+        [HttpPost]
+        public ActionResult<TaskItem> AddTask(TaskItem task)
+        {
+            var addedTask = _repository.AddTask(task);
+            return CreatedAtAction(nameof(GetTaskById), new { id = addedTask.Id }, addedTask);
+        }
+
+        [HttpPut("{id}")]
+        public IActionResult UpdateTask(int id, TaskItem updatedTask)
+        {
+            var result = _repository.UpdateTask(id, updatedTask);
+            if (!result)
+            {
+                return NotFound();
+            }
+            return NoContent();
+        }
+
+        [HttpDelete("{id}")]
+        public IActionResult DeleteTask(int id)
+        {
+            var result = _repository.DeleteTask(id);
+            if (!result)
+            {
+                return NotFound();
+            }
+            return NoContent();
+        }
+    }
+
+    public class TaskItem
+    {
+        public int Id { get; set; }
+        public string Title { get; set; }
+        public bool IsComplete { get; set; }
+    }
+
+    public interface ITaskRepository
+    {
+        IEnumerable<TaskItem> GetAllTasks();
+        TaskItem GetTaskById(int id);
+        TaskItem AddTask(TaskItem task);
+        bool UpdateTask(int id, TaskItem updatedTask);
+        bool DeleteTask(int id);
+    }
+}

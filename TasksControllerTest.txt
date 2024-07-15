@@ -1,0 +1,120 @@
+using Xunit;
+using FakeItEasy;
+using TaskManager.Controllers;
+using TaskManager.Models;
+using Microsoft.AspNetCore.Mvc;
+using System.Collections.Generic;
+
+namespace TaskManager.Tests
+{
+    public class TasksControllerTests
+    {
+        private readonly ITaskRepository _fakeRepository;
+        private readonly TasksController _controller;
+
+        public TasksControllerTests()
+        {
+            // Create a fake repository using FakeItEasy
+            _fakeRepository = A.Fake<ITaskRepository>();
+
+            // Setup fake repository with sample data
+            A.CallTo(() => _fakeRepository.GetAllTasks()).Returns(new List<TaskItem>
+            {
+                new TaskItem { Id = 1, Title = "Task 1", IsComplete = false },
+                new TaskItem { Id = 2, Title = "Task 2", IsComplete = true }
+            });
+
+            A.CallTo(() => _fakeRepository.GetTaskById(A<int>._)).ReturnsLazily((int id) =>
+            {
+                return id switch
+                {
+                    1 => new TaskItem { Id = 1, Title = "Task 1", IsComplete = false },
+                    2 => new TaskItem { Id = 2, Title = "Task 2", IsComplete = true },
+                    _ => null
+                };
+            });
+
+            A.CallTo(() => _fakeRepository.AddTask(A<TaskItem>._)).Invokes((TaskItem task) =>
+            {
+                task.Id = 3; // Simulating the addition of a new task with Id 3
+            }).ReturnsLazily((TaskItem task) => task);
+
+            A.CallTo(() => _fakeRepository.UpdateTask(A<int>._, A<TaskItem>._)).Returns(true);
+
+            A.CallTo(() => _fakeRepository.DeleteTask(A<int>._)).Returns(true);
+
+            // Create the controller with the fake repository
+            _controller = new TasksController(_fakeRepository);
+        }
+
+        // Test for GetAllTasks endpoint
+        [Fact]
+        public void GetAllTasks_ReturnsOkResult()
+        {
+            // Act
+            var result = _controller.GetAllTasks();
+
+            // Assert
+            var okResult = Assert.IsType<OkObjectResult>(result.Result);
+            var tasks = Assert.IsAssignableFrom<IEnumerable<TaskItem>>(okResult.Value);
+            Assert.Equal(2, tasks.Count);
+        }
+
+        // Test for GetTaskById endpoint
+        [Fact]
+        public void GetTaskById_ReturnsOkResult()
+        {
+            // Act
+            var result = _controller.GetTaskById(1);
+
+            // Assert
+            var okResult = Assert.IsType<OkObjectResult>(result.Result);
+            var task = Assert.IsType<TaskItem>(okResult.Value);
+            Assert.Equal("Task 1", task.Title);
+        }
+
+        // Test for AddTask endpoint
+        [Fact]
+        public void AddTask_ReturnsCreatedAtActionResult()
+        {
+            // Arrange
+            var newTask = new TaskItem { Title = "Task 3", IsComplete = false };
+
+            // Act
+            var result = _controller.AddTask(newTask);
+
+            // Assert
+            var createdAtActionResult = Assert.IsType<CreatedAtActionResult>(result.Result);
+            var task = Assert.IsType<TaskItem>(createdAtActionResult.Value);
+            Assert.Equal("Task 3", task.Title);
+            Assert.Equal(3, task.Id); // Ensuring the Id is assigned correctly
+        }
+
+        // Test for UpdateTask endpoint
+        [Fact]
+        public void UpdateTask_ReturnsNoContentResult()
+        {
+            // Arrange
+            var updatedTask = new TaskItem { Id = 1, Title = "Updated Task 1", IsComplete = true };
+
+            // Act
+            var result = _controller.UpdateTask(1, updatedTask);
+
+            // Assert
+            Assert.IsType<NoContentResult>(result);
+            A.CallTo(() => _fakeRepository.UpdateTask(1, updatedTask)).MustHaveHappenedOnceExactly();
+        }
+
+        // Test for DeleteTask endpoint
+        [Fact]
+        public void DeleteTask_ReturnsNoContentResult()
+        {
+            // Act
+            var result = _controller.DeleteTask(1);
+
+            // Assert
+            Assert.IsType<NoContentResult>(result);
+            A.CallTo(() => _fakeRepository.DeleteTask(1)).MustHaveHappenedOnceExactly();
+        }
+    }
+}
